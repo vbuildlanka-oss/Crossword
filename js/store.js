@@ -30,6 +30,8 @@
     daily: { lastSpin: null, streak: 0, lastDone: null, best: 0 },
     quests: { date: null, list: [], bonusClaimed: false },
     adventure: { stars: {} },
+    pid: Math.random().toString(36).slice(2, 10), // anonymous player id (for trades)
+    trades: { out: {}, accepted: {}, done: {}, count: 0 },
     skin: "classic",
     skins: ["classic"],
     muted: false,
@@ -56,6 +58,7 @@
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* storage full or blocked */ } }
   data = load();
+  save(); // persist a freshly generated player id right away
 
   // ---------------- Player level ----------------
   const TITLES = [
@@ -159,6 +162,104 @@
     return { sticker, isNew, bonus, rarity: RARITY[rarity] };
   }
   function stickerCount() { return Object.keys(data.stickers).length; }
+  function stickerById(id) { return STICKERS.find((s) => s.id === id) || null; }
+  function giveSticker(id, n) {
+    data.stickers[id] = (data.stickers[id] || 0) + (n == null ? 1 : n);
+    if (data.stickers[id] <= 0) delete data.stickers[id];
+  }
+
+  // ---------------- Sticker trading (via share links) ----------------
+  // There is no server, so trades travel as signed codes inside links:
+  //   1. Offer: the giver's sticker is set aside (escrow) and an offer code is made.
+  //   2. Accept: the partner swaps stickers and gets a reply code to send back.
+  //   3. Claim: the giver opens the reply and receives the requested sticker.
+  const TRADE_SALT = "cwahoy-trade-v1";
+  function b64e(str) { return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+  function b64d(str) {
+    str = str.replace(/-/g, "+").replace(/_/g, "/");
+    while (str.length % 4) str += "=";
+    return decodeURIComponent(escape(atob(str)));
+  }
+  function sign(json) { return global.CrosswordGen.hashSeed(json + TRADE_SALT).toString(36); }
+  function encodeTrade(obj) { const json = JSON.stringify(obj); return b64e(json) + "." + sign(json); }
+  function decodeTrade(code) {
+    try {
+      code = String(code || "").trim();
+      const m = code.match(/[?&]trade=([^&#\s]+)/);
+      if (m) code = decodeURIComponent(m[1]);
+      const [body, sig] = code.split(".");
+      if (!body || !sig) return null;
+      const json = b64d(body);
+      if (sign(json) !== sig) return null;
+      const o = JSON.parse(json);
+      if (!o || o.v !== 1 || (o.k !== "offer" && o.k !== "reply")) return null;
+      if (!/^[a-z0-9]{4,16}$/.test(o.id) || !stickerById(o.g)) return null;
+      if (o.w != null && !stickerById(o.w)) return null;
+      o.n = String(o.n || "A friend").replace(/[<>]/g, "").slice(0, 18) || "A friend";
+      return o;
+    } catch (e) { return null; }
+  }
+  function playerName() { return data.name || "A friend"; }
+
+  function createOffer(giveId, wantId) {
+    if (!stickerById(giveId) || !(data.stickers[giveId] > 0)) return null;
+    if (wantId != null && !stickerById(wantId)) return null;
+    const id = Math.random().toString(36).slice(2, 10);
+    giveSticker(giveId, -1);
+    data.trades.out[id] = { g: giveId, w: wantId || null, t: Date.now() };
+    save();
+    return { id, code: encodeTrade({ v: 1, k: "offer", id, n: playerName(), f: data.pid, g: giveId, w: wantId || null }) };
+  }
+  function offerCode(id) {
+    const t = data.trades.out[id];
+    return t ? encodeTrade({ v: 1, k: "offer", id, n: playerName(), f: data.pid, g: t.g, w: t.w }) : null;
+  }
+  function cancelOffer(id) {
+    const t = data.trades.out[id];
+    if (!t) return false;
+    giveSticker(t.g, 1);
+    delete data.trades.out[id];
+    save();
+    return true;
+  }
+  // Look at a decoded code and describe what would happen, without changing anything.
+  function inspectTrade(o) {
+    if (o.k === "offer") {
+      if (o.f === data.pid) return { status: "own" };
+      if (data.trades.accepted[o.id]) return { status: "accepted", reply: data.trades.accepted[o.id] };
+      if (o.w && !(data.stickers[o.w] > 0)) return { status: "missing" };
+      return { status: "ok" };
+    }
+    // reply
+    if (data.trades.done[o.id]) return { status: "claimed" };
+    const t = data.trades.out[o.id];
+    if (!t || o.to !== data.pid || t.g !== o.g || t.w !== o.w) return { status: "unknown" };
+    return { status: "ok" };
+  }
+  function acceptOffer(o) {
+    if (o.k !== "offer" || inspectTrade(o).status !== "ok") return null;
+    if (o.w) giveSticker(o.w, -1);
+    const isNew = !data.stickers[o.g];
+    giveSticker(o.g, 1);
+    const reply = o.w ? encodeTrade({ v: 1, k: "reply", id: o.id, n: playerName(), to: o.f, g: o.g, w: o.w }) : "gift";
+    data.trades.accepted[o.id] = reply;
+    data.trades.count++;
+    save();
+    return { reply: o.w ? reply : null, isNew };
+  }
+  function claimReply(o) {
+    if (o.k !== "reply" || inspectTrade(o).status !== "ok") return null;
+    const isNew = !data.stickers[o.w];
+    giveSticker(o.w, 1);
+    delete data.trades.out[o.id];
+    data.trades.done[o.id] = 1;
+    data.trades.count++;
+    save();
+    return { isNew };
+  }
+  function pendingOffers() {
+    return Object.keys(data.trades.out).map((id) => ({ id, ...data.trades.out[id] })).sort((a, b) => b.t - a.t);
+  }
 
   // ---------------- Words discovered (Wordopedia) ----------------
   function markSeen(theme, answer) {
@@ -198,6 +299,8 @@
     { id: "stick10", e: "📒", n: "Sticker Starter", d: "Collect 10 different stickers", t: () => stickerCount() >= 10 },
     { id: "stick30", e: "🖼️", n: "Sticker Fan", d: "Collect 30 different stickers", t: () => stickerCount() >= 30 },
     { id: "stickAll", e: "🏛️", n: "Museum Curator", d: "Collect every sticker", t: () => stickerCount() >= STICKERS.length },
+    { id: "trade1", e: "🤝", n: "Swap Buddy", d: "Complete a sticker trade", t: (s) => s.trades.count >= 1 },
+    { id: "trade5", e: "🔁", n: "Super Trader", d: "Complete 5 sticker trades", t: (s) => s.trades.count >= 5 },
     { id: "legend", e: "👑", n: "Legendary Luck", d: "Find a legendary sticker", t: (s) => STICKERS.some((x) => x.rarity === "legendary" && s.stickers[x.id]) },
     { id: "rich", e: "💰", n: "Treasure Keeper", d: "Have 1,000 coins at once", t: (s) => s.coins >= 1000 },
     { id: "lvl5", e: "🎖️", n: "Rising Star", d: "Reach player level 5", t: () => levelInfo().level >= 5 },
@@ -390,7 +493,8 @@
     get data() { return data; },
     save, dateKey, levelInfo, addXP, addCoins, spendCoins,
     POWERUPS, SKINS, usePower, buyPower, buySkin, equipSkin,
-    STICKERS, RARITY, rollSticker, stickerCount,
+    STICKERS, RARITY, rollSticker, stickerCount, stickerById,
+    decodeTrade, inspectTrade, createOffer, offerCode, cancelOffer, acceptOffer, claimReply, pendingOffers,
     markSeen, isSeen, seenCount,
     BADGES, checkBadges,
     QUESTS, ensureQuests, questDef, questEvent, claimQuest, allQuestsClaimed, claimQuestBonus, questsReady,

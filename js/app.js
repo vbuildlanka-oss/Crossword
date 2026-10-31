@@ -17,7 +17,7 @@
   const fmtTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  const SCREENS = ["home", "setup", "game", "adventure", "album", "badges", "shop", "words"];
+  const SCREENS = ["home", "setup", "game", "adventure", "album", "trade", "badges", "shop", "words"];
   const MODES = [
     { id: "classic", e: "🧩", name: "Classic", desc: "Solve at your own pace" },
     { id: "ta", e: "⚡", name: "Time Attack", desc: "Race the clock — words add time" },
@@ -556,6 +556,8 @@
     const box = $("album");
     box.innerHTML = "";
     $("album-count").textContent = `${Store.stickerCount()}/${Store.STICKERS.length}`;
+    const pending = Store.pendingOffers().length;
+    $("trade-pending-pill").textContent = pending ? `⏳ ${pending} waiting` : "Trade ▶";
     ["legendary", "epic", "rare", "common"].forEach((rar) => {
       const R = Store.RARITY[rar];
       const list = Store.STICKERS.filter((s) => s.rarity === rar);
@@ -581,6 +583,261 @@
       sec.appendChild(grid);
       box.appendChild(sec);
     });
+  }
+
+  // ---------------- Sticker trading ----------------
+  const trade = { give: null, want: null, filter: "missing" };
+  const tradeLink = (code) => `${location.origin}${location.pathname}?trade=${code}`;
+
+  function fillSlot(slot, label, sticker, fallback) {
+    const R = sticker ? Store.RARITY[sticker.rarity] : null;
+    slot.style.setProperty("--rc", R ? R.color : "var(--cell-line)");
+    slot.classList.toggle("filled", !!sticker);
+    slot.querySelector("small").textContent = label;
+    slot.querySelector(".ts-e").textContent = sticker ? sticker.e : fallback.e;
+    slot.querySelector("b").textContent = sticker ? `${sticker.name} · ${R.label}` : fallback.n;
+  }
+
+  function stickerButton(s, opts) {
+    const R = Store.RARITY[s.rarity];
+    const n = Store.data.stickers[s.id] || 0;
+    const b = el("button", "sticker owned trade-pick" + (opts.selected ? " selected" : ""));
+    b.type = "button";
+    b.dataset.rarity = s.rarity;
+    b.style.setProperty("--rc", R.color);
+    b.innerHTML = `<span class="st-e">${s.e}</span><span class="st-name">${esc(s.name)}</span>` +
+      (opts.count ? `<span class="st-count">×${n}</span>` : "") +
+      (opts.need ? `<span class="st-need">Need!</span>` : "");
+    b.addEventListener("click", opts.onClick);
+    return b;
+  }
+
+  function renderTrade() {
+    const give = trade.give && Store.stickerById(trade.give);
+    const want = trade.want && Store.stickerById(trade.want);
+    fillSlot($("slot-give"), "You give", give, { e: "❔", n: "Pick below" });
+    fillSlot($("slot-want"), "You get", want, trade.want === "gift" ? { e: "🎁", n: "Nothing, it's a gift!" } : { e: "❔", n: "Pick below" });
+    $("slot-want").classList.toggle("filled", !!want || trade.want === "gift");
+
+    // Give grid: stickers you own.
+    const gGrid = $("trade-give");
+    gGrid.innerHTML = "";
+    const owned = Store.STICKERS.filter((s) => Store.data.stickers[s.id] > 0);
+    $("give-hint").textContent = owned.length ? "Spare duplicates (×2 or more) are the best to trade" : "";
+    if (!owned.length) gGrid.innerHTML = `<p class="empty-note">No stickers yet! Win puzzles to open prize chests 🎁</p>`;
+    owned.sort((a, b) => (Store.data.stickers[b.id] - Store.data.stickers[a.id]));
+    owned.forEach((s) => gGrid.appendChild(stickerButton(s, {
+      count: true, selected: trade.give === s.id,
+      onClick: () => { trade.give = s.id; FX.play("pop"); renderTrade(); },
+    })));
+
+    // Want grid: gift option + stickers.
+    document.querySelectorAll("[data-want-filter]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.wantFilter === trade.filter)));
+    const wGrid = $("trade-want");
+    wGrid.innerHTML = "";
+    const gift = el("button", "sticker owned trade-pick gift-pick" + (trade.want === "gift" ? " selected" : ""));
+    gift.type = "button";
+    gift.innerHTML = `<span class="st-e">🎁</span><span class="st-name">Just a gift</span>`;
+    gift.addEventListener("click", () => { trade.want = "gift"; FX.play("pop"); renderTrade(); });
+    wGrid.appendChild(gift);
+    const list = Store.STICKERS.filter((s) => s.id !== trade.give && (trade.filter === "all" || !Store.data.stickers[s.id]));
+    list.forEach((s) => wGrid.appendChild(stickerButton(s, {
+      need: !Store.data.stickers[s.id] && trade.filter === "all", selected: trade.want === s.id,
+      onClick: () => { trade.want = s.id; FX.play("pop"); renderTrade(); },
+    })));
+
+    // Create button + fairness note.
+    const ready = !!give && (trade.want === "gift" || !!want);
+    $("trade-create").disabled = !ready;
+    const order = ["common", "rare", "epic", "legendary"];
+    let note = "";
+    if (give && want) {
+      const d = order.indexOf(give.rarity) - order.indexOf(want.rarity);
+      note = d > 0 ? "💛 You're giving a rarer sticker. That's very generous!" : d < 0 ? "🤔 You're asking for a rarer sticker. Your partner might say no!" : "⚖️ Fair swap, same rarity!";
+    }
+    if (give && Store.data.stickers[give.id] === 1) note += (note ? " " : "") + "⚠️ That's your only one.";
+    $("trade-note").textContent = note;
+
+    // Pending offers.
+    const pend = Store.pendingOffers();
+    $("trade-pending-wrap").hidden = !pend.length;
+    const box = $("trade-pending");
+    box.innerHTML = "";
+    pend.forEach((p) => {
+      const g = Store.stickerById(p.g);
+      const w = p.w && Store.stickerById(p.w);
+      const row = el("div", "pending-row");
+      row.innerHTML = `<span class="pr-pair">${g.e} ⇄ ${w ? w.e : "🎁"}</span><span class="pr-text"><b></b><small>${new Date(p.t).toLocaleDateString()}</small></span>`;
+      row.querySelector("b").textContent = w ? `${g.name} for ${w.name}` : `${g.name} (gift)`;
+      const resend = el("button", "btn btn-secondary", "🔗 Link");
+      const cancel = el("button", "btn btn-ghost", "✖ Cancel");
+      resend.type = cancel.type = "button";
+      resend.addEventListener("click", () => showOfferLink(p.id));
+      cancel.addEventListener("click", () => {
+        if (!confirm(`Cancel this trade and get your ${g.name} sticker back?\n\nOnly cancel if your partner has NOT accepted it yet.`)) return;
+        Store.cancelOffer(p.id);
+        FX.play("back");
+        FX.toast(g.e, "Trade cancelled", `${g.name} is back in your album`);
+        renderTrade();
+      });
+      row.append(resend, cancel);
+      box.appendChild(row);
+    });
+  }
+
+  function openTrade() { trade.give = null; trade.want = null; renderTrade(); show("trade"); }
+
+  function createTrade() {
+    const res = Store.createOffer(trade.give, trade.want === "gift" ? null : trade.want);
+    if (!res) { FX.play("wrong"); return; }
+    trade.give = null; trade.want = null;
+    FX.play("chest");
+    renderTrade();
+    showOfferLink(res.id, true);
+  }
+
+  // ----- Trade dialog helpers -----
+  function tmShow(o) {
+    $("tm-title").textContent = o.title;
+    $("tm-message").textContent = o.message;
+    $("tm-pair").hidden = !o.left;
+    if (o.left) {
+      fillSlot($("tm-left"), o.left.label, o.left.s, o.left.fb || { e: "🎁", n: "A gift" });
+      fillSlot($("tm-right"), o.right.label, o.right.s, o.right.fb || { e: "🎁", n: "Nothing, it's a gift!" });
+    }
+    $("tm-link-wrap").hidden = !o.link;
+    $("tm-copy-status").textContent = "";
+    if (o.link) $("tm-link").value = o.link;
+    const actions = $("tm-actions");
+    actions.innerHTML = "";
+    (o.buttons || []).forEach((b) => {
+      const btn = el("button", "btn " + (b.cls || "btn-ghost"), b.text);
+      btn.type = "button";
+      btn.addEventListener("click", b.onClick);
+      actions.appendChild(btn);
+    });
+    openModal("trade-modal");
+  }
+  const closeTm = () => closeModal("trade-modal");
+  function linkButtons(link, text) {
+    const btns = [{ text: "📋 Copy link", cls: "btn-primary", onClick: () => copyText(link, $("tm-copy-status")) }];
+    if (navigator.share) btns.push({ text: "Share…", cls: "btn-secondary", onClick: () => navigator.share({ title: "Crosswords Ahoy! sticker trade", text, url: link }).catch(() => {}) });
+    btns.push({ text: "Done", onClick: closeTm });
+    return btns;
+  }
+  function copyText(text, status) {
+    const ok = () => { status.textContent = "Copied! Now send it to your partner 🎉"; FX.play("coin"); };
+    const fallback = () => {
+      try { $("tm-link").focus(); $("tm-link").select(); document.execCommand("copy"); ok(); }
+      catch (e) { status.textContent = "Press and hold the link to copy it."; }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok).catch(fallback);
+    else fallback();
+  }
+
+  function showOfferLink(id, fresh) {
+    const t = Store.data.trades.out[id];
+    if (!t) return;
+    const g = Store.stickerById(t.g);
+    const w = t.w && Store.stickerById(t.w);
+    const link = tradeLink(Store.offerCode(id));
+    tmShow({
+      title: fresh ? "📦 Trade ready!" : "🔗 Your trade link",
+      message: `Your ${g.name} sticker is packed and waiting. Send this link to your partner. When they accept, they'll send you a link back.`,
+      left: { label: "You give", s: g }, right: { label: "You get", s: w },
+      link, buttons: linkButtons(link, `Want to swap stickers? I'll trade my ${g.e} ${g.name}!`),
+    });
+    if (fresh) FX.burstAt($("tm-left"), { count: 20 });
+  }
+
+  // Opening a code (from a link or pasted).
+  function handleTradeCode(code) {
+    const o = Store.decodeTrade(code);
+    if (!o) {
+      FX.play("wrong");
+      tmShow({ title: "🤔 Hmm…", message: "That trade code doesn't look right. Ask your partner to copy the whole link again.", buttons: [{ text: "OK", cls: "btn-primary", onClick: closeTm }] });
+      return;
+    }
+    const g = Store.stickerById(o.g);
+    const w = o.w && Store.stickerById(o.w);
+    const info = Store.inspectTrade(o);
+
+    if (o.k === "offer") {
+      if (info.status === "own") {
+        const link = Store.data.trades.out[o.id] ? tradeLink(Store.offerCode(o.id)) : null;
+        if (!link) { tmShow({ title: "📦 Your old trade", message: "This trade was already finished or cancelled.", buttons: [{ text: "OK", cls: "btn-primary", onClick: closeTm }] }); return; }
+        tmShow({ title: "📦 That's your own trade!", message: "Send this link to your partner so they can accept it.", left: { label: "You give", s: g }, right: { label: "You get", s: w }, link, buttons: linkButtons(link, "Want to swap stickers?") });
+        return;
+      }
+      if (info.status === "accepted") {
+        if (info.reply === "gift") { tmShow({ title: "🎁 Already opened", message: `You already got this gift from ${o.n}.`, buttons: [{ text: "OK", cls: "btn-primary", onClick: closeTm }] }); return; }
+        const link = tradeLink(info.reply);
+        tmShow({ title: "✅ Already traded", message: `You already accepted this trade. Here's the link for ${o.n} again, so they can get their sticker:`, left: { label: "You got", s: g }, right: { label: "You gave", s: w }, link, buttons: linkButtons(link, "Here's your sticker!") });
+        return;
+      }
+      if (info.status === "missing") {
+        tmShow({
+          title: `🔁 Trade from ${o.n}`,
+          message: `${o.n} wants your ${w.name} sticker, but you don't have it yet. Keep playing to find one, then open this link again!`,
+          left: { label: "You'd get", s: g }, right: { label: "They want", s: w },
+          buttons: [{ text: "OK", cls: "btn-primary", onClick: closeTm }],
+        });
+        return;
+      }
+      const yours = w ? Store.data.stickers[w.id] : 0;
+      tmShow({
+        title: w ? `🔁 ${o.n} wants to trade!` : `🎁 A gift from ${o.n}!`,
+        message: w ? `${o.n} will give you ${g.name} for your ${w.name} (you have ${yours}).` : `${o.n} is sending you a sticker. How kind!`,
+        left: { label: "You get", s: g }, right: { label: "You give", s: w },
+        buttons: [
+          { text: w ? "✅ Accept trade" : "🎁 Open gift", cls: "btn-primary", onClick: () => acceptTrade(o) },
+          { text: w ? "No thanks" : "Later", onClick: closeTm },
+        ],
+      });
+      return;
+    }
+
+    // Reply
+    if (info.status === "claimed") { tmShow({ title: "✅ Already collected", message: `You already got your ${w.name} from this trade.`, buttons: [{ text: "OK", cls: "btn-primary", onClick: closeTm }] }); return; }
+    if (info.status === "unknown") { tmShow({ title: "🤔 Not your trade", message: "This reply belongs to a trade made on another device (or one you cancelled). Open it on the device that made the trade.", buttons: [{ text: "OK", cls: "btn-primary", onClick: closeTm }] }); return; }
+    const res = Store.claimReply(o);
+    celebrateTrade(w, res && res.isNew);
+    tmShow({
+      title: "🎉 Trade complete!",
+      message: `${o.n} accepted! ${w.name} is now in your album${res && res.isNew ? " (NEW!)" : ""}.`,
+      left: { label: "You gave", s: g }, right: { label: "You got", s: w },
+      buttons: [{ text: "📒 See album", cls: "btn-primary", onClick: () => { closeTm(); renderAlbum(); show("album"); } }, { text: "Close", onClick: closeTm }],
+    });
+  }
+
+  function acceptTrade(o) {
+    const res = Store.acceptOffer(o);
+    if (!res) { FX.play("wrong"); return; }
+    const g = Store.stickerById(o.g);
+    const w = o.w && Store.stickerById(o.w);
+    celebrateTrade(g, res.isNew);
+    if (!res.reply) {
+      tmShow({ title: "🎁 Gift opened!", message: `${g.name} is now in your album${res.isNew ? " (NEW!)" : ""}. Say thank you to ${o.n}!`, left: { label: "You got", s: g }, right: { label: "You gave", s: null },
+        buttons: [{ text: "📒 See album", cls: "btn-primary", onClick: () => { closeTm(); renderAlbum(); show("album"); } }, { text: "Close", onClick: closeTm }] });
+      return;
+    }
+    const link = tradeLink(res.reply);
+    tmShow({
+      title: "🎉 Swapped!",
+      message: `You got ${g.name}${res.isNew ? " (NEW!)" : ""}! Now send this link back to ${o.n} so they get your ${w.name}.`,
+      left: { label: "You got", s: g }, right: { label: "You gave", s: w },
+      link, buttons: linkButtons(link, `I accepted your trade! Here's my ${w.e} ${w.name}`),
+    });
+  }
+
+  function celebrateTrade(sticker, isNew) {
+    FX.play(isNew ? "legendary" : "chest");
+    FX.confetti(isNew ? 140 : 70);
+    Store.checkBadges().forEach((b) => FX.toast(b.e, "Badge unlocked!", b.n, "badge"));
+    if (sticker) FX.toast(sticker.e, isNew ? "New sticker!" : "Sticker added", sticker.name);
+    if (!$("album-screen").hidden) renderAlbum();
+    if (!$("trade-screen").hidden) renderTrade();
+    if (!$("home-screen").hidden) renderHome();
   }
 
   // ---------------- Badges ----------------
@@ -875,10 +1132,26 @@
     $("spin-close").addEventListener("click", () => { if (spinning) return; closeModal("spin-modal"); renderHome(); });
     $("quests-close").addEventListener("click", () => { closeModal("quests-modal"); renderHome(); });
 
+    // Sticker trading.
+    $("open-trade-btn").addEventListener("click", () => { FX.play("click"); openTrade(); });
+    $("trade-back").addEventListener("click", () => { FX.play("click"); renderAlbum(); show("album"); });
+    $("trade-create").addEventListener("click", createTrade);
+    document.querySelectorAll("[data-want-filter]").forEach((b) => b.addEventListener("click", () => {
+      trade.filter = b.dataset.wantFilter; FX.play("click"); renderTrade();
+    }));
+    const openPasted = () => {
+      const v = $("trade-code-input").value.trim();
+      if (!v) return;
+      $("trade-code-input").value = "";
+      handleTradeCode(v);
+    };
+    $("trade-code-open").addEventListener("click", openPasted);
+    $("trade-code-input").addEventListener("keydown", (e) => { if (e.key === "Enter") openPasted(); });
+
     // Escape closes simple dialogs.
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
-      ["share-modal", "quests-modal"].forEach((id) => { if (!$(id).hidden) closeModal(id); });
+      ["share-modal", "quests-modal", "trade-modal"].forEach((id) => { if (!$(id).hidden) closeModal(id); });
       if (!$("spin-modal").hidden && !spinning) closeModal("spin-modal");
     });
   }
@@ -905,8 +1178,17 @@
     Store.ensureQuests();
     wire();
     Game.wireInput();
+    const tradeParam = new URLSearchParams(location.search).get("trade");
     const shared = parseGameParam();
-    if (shared) {
+    if (tradeParam) {
+      clearUrl();
+      renderAlbum();
+      show("album");
+      setTimeout(() => {
+        handleTradeCode(tradeParam);
+        if (!Store.data.welcomed) FX.toast("🦜", "Tip", "Tap your avatar on the Home screen to set your name");
+      }, 350);
+    } else if (shared) {
       app.theme = shared.theme; app.level = shared.level; app.mode = shared.mode;
       startClassic(shared.seed, true);
     } else {

@@ -172,7 +172,58 @@
         <span class="head-pill" id="album-count">0/0</span>
       </div>
       <p class="screen-sub">Win puzzles to open prize chests. Can you find all the legendary ones?</p>
+      <button id="open-trade-btn" class="trade-cta" type="button">
+        <span class="tc-e">🔁</span>
+        <span class="tc-text"><b>Trade with your partner</b><small>Swap a sticker for one you're missing</small></span>
+        <span class="tc-go" id="trade-pending-pill">Trade ▶</span>
+      </button>
       <div id="album" class="album"></div>
+    </section>
+
+    <!-- ============ STICKER TRADING ============ -->
+    <section id="trade-screen" class="screen panel-screen" hidden>
+      <div class="screen-head">
+        <button class="btn btn-ghost" id="trade-back" type="button">‹ Album</button>
+        <h2 class="screen-title">🔁 Sticker Swap</h2>
+        <span></span>
+      </div>
+      <ol class="trade-steps">
+        <li><b>Pick</b> a sticker to give and one you'd like back.</li>
+        <li><b>Send</b> the trade link to your partner.</li>
+        <li>Your partner <b>accepts</b> and sends you a link back. Open it to get your sticker!</li>
+      </ol>
+
+      <div class="trade-builder">
+        <div class="trade-slot" id="slot-give"><small>You give</small><span class="ts-e">❔</span><b>Pick below</b></div>
+        <div class="trade-arrow" aria-hidden="true">⇄</div>
+        <div class="trade-slot" id="slot-want"><small>You get</small><span class="ts-e">❔</span><b>Pick below</b></div>
+      </div>
+
+      <h3 class="section-title">1. Sticker to give <small id="give-hint"></small></h3>
+      <div id="trade-give" class="sticker-grid trade-grid"></div>
+
+      <h3 class="section-title">2. Sticker you want</h3>
+      <div class="want-filter" role="radiogroup" aria-label="Filter">
+        <button type="button" class="chip-btn" data-want-filter="missing" aria-checked="true">Ones I'm missing</button>
+        <button type="button" class="chip-btn" data-want-filter="all" aria-checked="false">All stickers</button>
+      </div>
+      <div id="trade-want" class="sticker-grid trade-grid"></div>
+
+      <div class="trade-make">
+        <button id="trade-create" class="btn btn-primary btn-big" type="button" disabled>🔗 Make trade link</button>
+        <p class="trade-note" id="trade-note"></p>
+      </div>
+
+      <div id="trade-pending-wrap" hidden>
+        <h3 class="section-title">⏳ Waiting for your partner</h3>
+        <div id="trade-pending" class="trade-pending"></div>
+      </div>
+
+      <h3 class="section-title">📥 Got a trade code?</h3>
+      <div class="trade-paste">
+        <input id="trade-code-input" class="share-link" type="text" placeholder="Paste a trade link or code" autocomplete="off" />
+        <button id="trade-code-open" class="btn btn-secondary" type="button">Open</button>
+      </div>
     </section>
 
     <!-- ============ BADGES ============ -->
@@ -319,6 +370,24 @@
       <div class="modal-actions">
         <button id="name-save" class="btn btn-primary" type="button">Let's go! 🚀</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ============ TRADE DIALOG (send / receive / complete) ============ -->
+  <div id="trade-modal" class="modal-overlay" hidden>
+    <div class="modal-card trade-card">
+      <h2 class="win-title" id="tm-title">🔁 Trade</h2>
+      <p class="win-message" id="tm-message"></p>
+      <div class="trade-builder small" id="tm-pair">
+        <div class="trade-slot" id="tm-left"><small></small><span class="ts-e"></span><b></b></div>
+        <div class="trade-arrow" aria-hidden="true">⇄</div>
+        <div class="trade-slot" id="tm-right"><small></small><span class="ts-e"></span><b></b></div>
+      </div>
+      <div id="tm-link-wrap" hidden>
+        <input id="tm-link" class="share-link" type="text" readonly aria-label="Trade link" />
+        <p id="tm-copy-status" class="copy-status" aria-live="polite"></p>
+      </div>
+      <div class="modal-actions" id="tm-actions"></div>
     </div>
   </div>
 

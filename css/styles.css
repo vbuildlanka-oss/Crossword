@@ -558,6 +558,60 @@ body.dark .quest { background: rgba(255,255,255,0.07); }
 .sticker.wiggle { animation: wiggle 0.5s ease; }
 @keyframes wiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg) scale(1.1); } 75% { transform: rotate(10deg) scale(1.1); } }
 
+/* ---------- Sticker trading ---------- */
+.trade-cta {
+  display: flex; align-items: center; gap: 0.8rem; width: 100%; margin: 0 0 1rem; padding: 0.8rem 1rem;
+  border: 0; border-radius: 18px; cursor: pointer; text-align: left; color: #fff;
+  background: linear-gradient(110deg, #06b6d4, #8b5cf6 60%, #ec4899); box-shadow: 0 5px 0 rgba(0,0,0,0.15), var(--shadow);
+  position: relative; overflow: hidden; transition: transform 0.15s;
+}
+.trade-cta::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%); animation: sweep 3.5s ease-in-out infinite; }
+.trade-cta:hover { transform: translateY(-2px); }
+.tc-e { font-size: 2.2rem; animation: spin-slow 6s linear infinite; display: inline-block; }
+.tc-text { flex: 1; display: flex; flex-direction: column; }
+.tc-text b { font-family: "Baloo 2", sans-serif; font-size: 1.15rem; }
+.tc-text small { font-weight: 700; opacity: 0.92; }
+.tc-go { background: #fff; color: #6d28d9; font-weight: 900; padding: 0.35rem 0.85rem; border-radius: 999px; white-space: nowrap; }
+
+.trade-steps { margin: 0 0 1rem; padding-left: 1.4rem; font-weight: 700; color: var(--ink-soft); line-height: 1.5; }
+.trade-steps b { color: var(--accent-2); }
+.trade-builder { display: flex; align-items: stretch; justify-content: center; gap: 0.6rem; margin: 0.4rem 0 0.6rem; }
+.trade-slot {
+  flex: 0 1 180px; display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.7rem 0.5rem;
+  border-radius: 18px; border: 3px dashed var(--rc, var(--cell-line)); background: var(--bg-1); text-align: center;
+  transition: transform 0.25s cubic-bezier(.2,1.6,.4,1), border-style 0.2s;
+}
+body.dark .trade-slot { background: rgba(255,255,255,0.07); }
+.trade-slot.filled { border-style: solid; background: #fff; color: #1e293b; box-shadow: 0 0 16px color-mix(in srgb, var(--rc) 45%, transparent); animation: slot-pop 0.4s cubic-bezier(.2,1.6,.4,1); }
+@keyframes slot-pop { from { transform: scale(0.85); } to { transform: none; } }
+.trade-slot small { font-weight: 900; text-transform: uppercase; letter-spacing: 0.6px; font-size: 0.68rem; color: #64748b; }
+.trade-slot .ts-e { font-size: 3rem; line-height: 1.15; }
+.trade-slot b { font-size: 0.82rem; font-weight: 800; }
+.trade-arrow { align-self: center; font-size: 2rem; font-weight: 900; color: var(--accent-2); animation: swap-wiggle 2s ease-in-out infinite; }
+@keyframes swap-wiggle { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px) scale(1.1); } }
+.trade-builder.small .trade-slot { flex-basis: 150px; }
+.trade-grid .trade-pick { cursor: pointer; transition: transform 0.15s; }
+.trade-grid .trade-pick:hover { transform: translateY(-3px); }
+.trade-pick.selected { box-shadow: 0 0 0 4px var(--accent), 0 0 18px var(--accent); transform: scale(1.05); }
+.trade-pick .st-need { position: absolute; top: -6px; left: -6px; background: #ef4444; color: #fff; font-size: 0.6rem; font-weight: 900; padding: 1px 6px; border-radius: 999px; }
+.gift-pick { --rc: #f59e0b; background: linear-gradient(135deg, #fff7d6, #ffe4f1) !important; }
+.want-filter { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+.chip-btn { border: 2px solid var(--cell-line); background: var(--bg-1); color: var(--ink); font-weight: 800; padding: 0.3rem 0.8rem; border-radius: 999px; cursor: pointer; font-size: 0.82rem; }
+.chip-btn[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-2); }
+.trade-make { margin: 1.2rem 0 0.4rem; }
+.trade-note { text-align: center; font-weight: 800; color: var(--ink-soft); min-height: 1.2em; margin: 0.6rem 0 0; }
+.empty-note { grid-column: 1 / -1; text-align: center; font-weight: 700; color: var(--ink-soft); }
+.trade-pending { display: flex; flex-direction: column; gap: 0.5rem; }
+.pending-row { display: flex; align-items: center; gap: 0.6rem; background: var(--bg-1); border-radius: 14px; padding: 0.5rem 0.7rem; flex-wrap: wrap; }
+body.dark .pending-row { background: rgba(255,255,255,0.07); }
+.pr-pair { font-size: 1.6rem; white-space: nowrap; }
+.pr-text { flex: 1; display: flex; flex-direction: column; min-width: 140px; }
+.pr-text small { color: var(--ink-soft); font-weight: 700; }
+.pending-row .btn { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+.trade-paste { display: flex; gap: 0.5rem; align-items: flex-start; }
+.trade-paste .share-link { margin: 0; text-align: left; }
+.trade-card { max-width: 470px; }
+
 /* ---------- Badges ---------- */
 .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.7rem; }
 .badge { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.15rem; padding: 0.9rem 0.6rem; border-radius: 18px; background: var(--bg-1); opacity: 0.6; }
