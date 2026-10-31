@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Crosswords Ahoy! by vbuild — a themed crossword adventure for kids with 20 worlds, 1,300+ words, combos, power-ups, daily challenges, stickers and badges." />
+  <meta name="theme-color" content="#3b82f6" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Crosswords Ahoy!" />
+  <meta name="author" content="vbuild" />
+  <title>Crosswords Ahoy! · by vbuild</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧩</text></svg>" />
+</head>
+<body data-theme="regular" data-skin="classic">
+  <canvas id="ambient" class="ambient" aria-hidden="true"></canvas>
+  <canvas id="fx-canvas" class="fx-canvas" aria-hidden="true"></canvas>
+  <div id="float-layer" class="float-layer" aria-hidden="true"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <header class="app-header">
+    <button id="logo-btn" class="logo" type="button" title="Home"><span class="logo-icon">🧩</span> Crosswords Ahoy!</button>
+    <p class="brand-by">by <span class="brand-name">vbuild&trade;</span></p>
+    <button id="sound-btn" class="icon-btn sound-btn" type="button" title="Sound on/off" aria-label="Toggle sound">🔊</button>
+  </header>
+
+  <main class="app-main">
+    <!-- ============ HOME ============ -->
+    <section id="home-screen" class="screen home-screen">
+      <div class="profile-card" id="profile-card">
+        <button class="avatar" id="avatar-btn" type="button" title="Change your name">
+          <span class="avatar-face">🦜</span>
+          <span class="avatar-level" id="p-level">1</span>
+        </button>
+        <div class="profile-info">
+          <div class="p-name-row"><span class="p-name" id="p-name">Puzzler</span><span class="p-title" id="p-title">Word Sprout</span></div>
+          <div class="xp-bar"><i id="p-xp-fill"></i><span id="p-xp-text">0 / 120 XP</span></div>
+        </div>
+        <div class="profile-wallet">
+          <span class="wallet-pill coins" title="Coins">🪙 <b id="p-coins">0</b></span>
+          <span class="wallet-pill streak" title="Daily streak">🔥 <b id="p-streak">0</b></span>
+        </div>
+      </div>
+
+      <div id="event-banner" class="event-banner" hidden></div>
+
+      <button id="quick-play-btn" class="hero-play" type="button">
+        <span class="hp-icon">▶</span>
+        <span class="hp-text"><b>Play!</b><small>Pick a theme &amp; level</small></span>
+        <span class="hp-deco" aria-hidden="true">🧩✨</span>
+      </button>
+
+      <div class="hub-grid">
+        <button class="hub-tile t-adventure" data-go="adventure" type="button"><span class="ht-e">🗺️</span><b>Adventure</b><small id="hub-adv">Stage 1</small></button>
+        <button class="hub-tile t-daily" data-go="daily" type="button"><span class="ht-e">📅</span><b>Daily Challenge</b><small id="hub-daily">New puzzle!</small><span class="dot" id="dot-daily" hidden></span></button>
+        <button class="hub-tile t-ta" data-go="ta" type="button"><span class="ht-e">⚡</span><b>Time Attack</b><small>Beat the clock</small></button>
+        <button class="hub-tile t-spin" data-go="spin" type="button"><span class="ht-e">🎡</span><b>Prize Wheel</b><small id="hub-spin">Free spin!</small><span class="dot" id="dot-spin" hidden></span></button>
+        <button class="hub-tile t-quests" data-go="quests" type="button"><span class="ht-e">🎯</span><b>Quests</b><small id="hub-quests">0/3 done</small><span class="dot" id="dot-quests" hidden></span></button>
+        <button class="hub-tile t-album" data-go="album" type="button"><span class="ht-e">📒</span><b>Stickers</b><small id="hub-album">0 / 61</small></button>
+        <button class="hub-tile t-badges" data-go="badges" type="button"><span class="ht-e">🏆</span><b>Badges</b><small id="hub-badges">0 / 40</small></button>
+        <button class="hub-tile t-shop" data-go="shop" type="button"><span class="ht-e">🛒</span><b>Shop</b><small>Power-ups &amp; skins</small></button>
+        <button class="hub-tile t-words" data-go="words" type="button"><span class="ht-e">📚</span><b>Wordopedia</b><small id="hub-words">0 words</small></button>
+      </div>
+    </section>
+
+    <!-- ============ SETUP ============ -->
+    <section id="setup-screen" class="screen setup-screen" hidden>
+      <div class="screen-head">
+        <button class="btn btn-ghost back-home" type="button">‹ Home</button>
+        <h2 class="screen-title">Pick your adventure!</h2>
+        <span></span>
+      </div>
+      <div class="setup-block">
+        <h3 class="setup-label">1. Choose a mode</h3>
+        <div id="mode-row" class="mode-row" role="radiogroup" aria-label="Mode"></div>
+      </div>
+      <div class="setup-block">
+        <h3 class="setup-label">2. Choose a theme <small id="theme-count"></small></h3>
+        <div id="theme-grid" class="theme-grid" role="radiogroup" aria-label="Theme"></div>
+      </div>
+      <div class="setup-block">
+        <h3 class="setup-label">3. Choose a level</h3>
+        <div id="difficulty-row" class="difficulty-row" role="radiogroup" aria-label="Difficulty"></div>
+      </div>
+      <button id="start-btn" class="btn btn-primary btn-big" type="button">Start Puzzle ▶</button>
+    </section>
+
+    <!-- ============ GAME ============ -->
+    <section id="game-screen" class="screen game-screen" hidden>
+      <div class="game-topbar">
+        <button id="back-btn" class="btn btn-ghost" type="button" title="Back to menu">‹ Menu</button>
+        <div class="game-meta">
+          <span id="game-mode-label" class="pill"></span>
+          <span id="game-theme-label" class="pill"></span>
+          <span id="game-level-label" class="pill"></span>
+        </div>
+        <div class="game-stats">
+          <span class="stat" id="timer-stat" title="Time"><span class="t-icon">⏱️</span> <span id="timer">0:00</span></span>
+          <span class="stat" title="Words solved">✅ <span id="solved-count">0/0</span></span>
+          <span class="stat score-stat" title="Score">⭐ <span id="score">0</span></span>
+          <span class="stat" title="Coins">🪙 <span id="game-coins">0</span></span>
+        </div>
+        <div class="progress-track" aria-hidden="true"><i id="progress-fill"></i></div>
+      </div>
+
+      <div id="share-banner" class="share-banner" hidden>
+        👥 You're playing a shared puzzle — solve it and compare with your friend!
+      </div>
+
+      <div class="game-body">
+        <div class="board-wrap">
+          <div class="board-top">
+            <div id="pip" class="pip"><span class="pip-face" aria-hidden="true">🦜</span><span id="pip-bubble" class="pip-bubble">Ahoy!</span></div>
+            <div id="combo-meter" class="combo-meter" data-level="0">
+              <span id="combo-label" class="combo-label">Combo</span>
+              <span class="combo-track"><i id="combo-fill"></i></span>
+            </div>
+          </div>
+          <div class="board-stage">
+            <div id="combo-banner" class="combo-banner" aria-live="polite"></div>
+            <div id="crossword" class="crossword" aria-label="Crossword grid"></div>
+          </div>
+          <div class="power-bar">
+            <button class="power-btn" data-power="hint" type="button" title="Reveal one letter in the selected word"><span class="pw-e">💡</span><span class="pw-name">Hint</span><span class="pw-count">0</span></button>
+            <button class="power-btn" data-power="reveal" type="button" title="Fill in the selected word"><span class="pw-e">📖</span><span class="pw-name">Word</span><span class="pw-count">0</span></button>
+            <button class="power-btn" data-power="bomb" type="button" title="Reveal a letter in up to 4 words"><span class="pw-e">💣</span><span class="pw-name">Bomb</span><span class="pw-count">0</span></button>
+            <button class="power-btn" data-power="freeze" type="button" title="Freeze the clock"><span class="pw-e">❄️</span><span class="pw-name">Freeze</span><span class="pw-count">0</span></button>
+          </div>
+          <div class="board-actions">
+            <button id="check-btn" class="btn btn-secondary" type="button" title="Check your answers">🔍 Check</button>
+            <button id="play-together-btn" class="btn btn-secondary" type="button" title="Share this exact puzzle so a friend can play it too">🤝 Play Together</button>
+            <button id="new-btn" class="btn btn-ghost" type="button" title="Generate a fresh puzzle">🔀 New</button>
+          </div>
+        </div>
+
+        <div class="clues-panel">
+          <div class="clue-current" id="current-clue">Tap a square to start solving!</div>
+          <div class="clue-columns">
+            <div class="clue-group">
+              <h3 class="clue-heading">Across →</h3>
+              <ol id="across-clues" class="clue-list"></ol>
+            </div>
+            <div class="clue-group">
+              <h3 class="clue-heading">Down ↓</h3>
+              <ol id="down-clues" class="clue-list"></ol>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ADVENTURE MAP ============ -->
+    <section id="adventure-screen" class="screen panel-screen" hidden>
+      <div class="screen-head">
+        <button class="btn btn-ghost back-home" type="button">‹ Home</button>
+        <h2 class="screen-title">🗺️ Adventure Map</h2>
+        <span class="head-pill" id="adv-count">0/40</span>
+      </div>
+      <p class="screen-sub">Travel across 4 lands and 40 stages. Every 10th stage is a ⏱️ boss race!</p>
+      <div id="adv-map" class="adv-map"></div>
+    </section>
+
+    <!-- ============ STICKER ALBUM ============ -->
+    <section id="album-screen" class="screen panel-screen" hidden>
+      <div class="screen-head">
+        <button class="btn btn-ghost back-home" type="button">‹ Home</button>
+        <h2 class="screen-title">📒 Sticker Album</h2>
+        <span class="head-pill" id="album-count">0/0</span>
+      </div>
+      <p class="screen-sub">Win puzzles to open prize chests. Can you find all the legendary ones?</p>
+      <div id="album" class="album"></div>
+    </section>
+
+    <!-- ============ BADGES ============ -->
+    <section id="badges-screen" class="screen panel-screen" hidden>
+      <div class="screen-head">
+        <button class="btn btn-ghost back-home" type="button">‹ Home</button>
+        <h2 class="screen-title">🏆 Badges</h2>
+        <span class="head-pill" id="badge-count">0/0</span>
+      </div>
+      <div id="badge-grid" class="badge-grid"></div>
+    </section>
+
+    <!-- ============ SHOP ============ -->
+    <section id="shop-screen" class="screen panel-screen" hidden>
+      <div class="screen-head">
+        <button class="btn btn-ghost back-home" type="button">‹ Home</button>
+        <h2 class="screen-title">🛒 Shop</h2>
+        <span class="head-pill">🪙 <b id="shop-coins">0</b></span>
+      </div>
+      <h3 class="section-title">Power-ups</h3>
+      <div id="shop-powers" class="shop-grid"></div>
+      <h3 class="section-title">Tile skins</h3>
+      <div id="shop-skins" class="shop-grid"></div>
+    </section>
+
+    <!-- ============ WORDOPEDIA ============ -->
+    <section id="words-screen" class="screen panel-screen" hidden>
+      <div class="screen-head">
+        <button class="btn btn-ghost" id="words-back" type="button">‹ Home</button>
+        <h2 class="screen-title" id="words-title">📚 Wordopedia</h2>
+        <span class="head-pill" id="words-count">0</span>
+      </div>
+      <p class="screen-sub" id="words-sub">Every word you solve is saved here. Collect them all!</p>
+      <div id="words-list" class="words-list"></div>
+    </section>
+  </main>
+
+  <!-- Invisible proxy input: lets mobile browsers open the native keyboard on tap -->
+  <input id="hidden-input" class="hidden-input" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" aria-hidden="true" />
+
+  <!-- ============ WIN ============ -->
+  <div id="win-modal" class="modal-overlay" hidden>
+    <div class="modal-card win-card">
+      <div class="rays" aria-hidden="true"></div>
+      <h2 id="win-title" class="win-title">🎉 You did it! 🎉</h2>
+      <p id="win-message" class="win-message"></p>
+      <div class="win-stars" id="win-stars"><span>★</span><span>★</span><span>★</span></div>
+      <div class="win-stats">
+        <div class="win-stat"><span class="win-stat-num" id="win-time">0:00</span><span class="win-stat-lbl">Time</span></div>
+        <div class="win-stat"><span class="win-stat-num" id="win-score">0</span><span class="win-stat-lbl">Score</span></div>
+        <div class="win-stat"><span class="win-stat-num" id="win-combo">x1</span><span class="win-stat-lbl">Best combo</span></div>
+      </div>
+      <div class="score-breakdown" id="win-breakdown"></div>
+      <div class="rewards" id="win-rewards"></div>
+      <div class="win-xp"><span id="win-level">Lv 1</span><div class="xp-bar"><i id="win-xp-fill"></i></div></div>
+      <div class="win-badges" id="win-badges"></div>
+      <div class="modal-actions">
+        <button id="chest-btn" class="btn btn-primary btn-chest" type="button">🎁 Open your prize!</button>
+        <button id="play-again-btn" class="btn btn-primary" type="button">Play Again ▶</button>
+        <button id="win-share-btn" class="btn btn-secondary" type="button">🤝 Play Together</button>
+        <button id="menu-btn" class="btn btn-ghost" type="button">Home</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TIME UP ============ -->
+  <div id="lose-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <h2 class="win-title">⏰ Time's up!</h2>
+      <p class="win-message" id="lose-message"></p>
+      <div class="win-stats">
+        <div class="win-stat"><span class="win-stat-num" id="lose-solved">0/0</span><span class="win-stat-lbl">Words</span></div>
+        <div class="win-stat"><span class="win-stat-num" id="lose-score">0</span><span class="win-stat-lbl">Score</span></div>
+        <div class="win-stat"><span class="win-stat-num" id="lose-coins">+0</span><span class="win-stat-lbl">Coins</span></div>
+      </div>
+      <div class="modal-actions">
+        <button id="retry-btn" class="btn btn-primary" type="button">Try Again ⚡</button>
+        <button id="lose-menu-btn" class="btn btn-ghost" type="button">Home</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PRIZE CHEST ============ -->
+  <div id="chest-modal" class="modal-overlay chest-overlay" hidden>
+    <div class="chest-stage">
+      <div class="chest-title" id="chest-title">Tap the chest!</div>
+      <button id="chest" class="chest" type="button" aria-label="Open the prize chest"><span class="chest-emoji">🎁</span></button>
+      <div id="chest-reveal" class="chest-reveal" hidden>
+        <div class="sticker-big" id="chest-sticker">⭐</div>
+        <div class="sticker-rarity" id="chest-rarity">Common</div>
+        <div class="sticker-name" id="chest-name">Gold Star</div>
+        <div class="sticker-note" id="chest-note">NEW!</div>
+        <button id="chest-close" class="btn btn-primary" type="button">Awesome!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LEVEL UP ============ -->
+  <div id="level-modal" class="modal-overlay level-overlay" hidden>
+    <div class="modal-card level-card">
+      <div class="rays" aria-hidden="true"></div>
+      <div class="level-badge" id="lvl-num">2</div>
+      <h2 class="win-title">LEVEL UP!</h2>
+      <p class="win-message">You are now a <b id="lvl-title">Letter Explorer</b>!</p>
+      <div class="rewards" id="lvl-rewards"></div>
+      <p class="unlock-note" id="lvl-unlock" hidden></p>
+      <div class="modal-actions"><button id="lvl-close" class="btn btn-primary" type="button">Woohoo! 🎉</button></div>
+    </div>
+  </div>
+
+  <!-- ============ PRIZE WHEEL ============ -->
+  <div id="spin-modal" class="modal-overlay" hidden>
+    <div class="modal-card spin-card">
+      <h2 class="win-title">🎡 Prize Wheel</h2>
+      <p class="win-message" id="spin-msg">One free spin every day!</p>
+      <div class="wheel-wrap">
+        <div class="wheel-pointer" aria-hidden="true">▼</div>
+        <div id="wheel" class="wheel"></div>
+        <button id="spin-btn" class="wheel-hub" type="button">SPIN</button>
+      </div>
+      <p class="spin-result" id="spin-result" aria-live="polite"></p>
+      <div class="modal-actions"><button id="spin-close" class="btn btn-ghost" type="button">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ QUESTS ============ -->
+  <div id="quests-modal" class="modal-overlay" hidden>
+    <div class="modal-card quests-card">
+      <h2 class="win-title">🎯 Daily Quests</h2>
+      <p class="win-message">New quests every day. Finish all 3 for a golden chest!</p>
+      <div id="quest-list" class="quest-list"></div>
+      <div class="quest-bonus" id="quest-bonus"></div>
+      <div class="modal-actions"><button id="quests-close" class="btn btn-ghost" type="button">Close</button></div>
+    </div>
+  </div>
+
+  <!-- ============ NAME ============ -->
+  <div id="name-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <div class="welcome-pip" aria-hidden="true">🦜</div>
+      <h2 class="win-title" id="name-title">Ahoy, puzzler!</h2>
+      <p class="win-message">I'm Pip, your puzzle parrot! What should I call you?</p>
+      <input id="name-input" class="share-link" type="text" maxlength="18" placeholder="Your name" autocomplete="off" />
+      <div class="modal-actions">
+        <button id="name-save" class="btn btn-primary" type="button">Let's go! 🚀</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PLAY TOGETHER (SHARE) ============ -->
+  <div id="share-modal" class="modal-overlay" hidden>
+    <div class="modal-card share-card">
+      <h2 class="win-title">🤝 Play Together</h2>
+      <p class="share-text">
+        Send this link to a friend. You'll <strong>both get the exact same</strong>
+        <span id="share-puzzle-label"></span> puzzle — then race to finish!
+      </p>
+      <input id="share-link" class="share-link" type="text" readonly aria-label="Shareable game link" />
+      <div class="modal-actions">
+        <button id="copy-link-btn" class="btn btn-primary" type="button">📋 Copy link</button>
+        <button id="native-share-btn" class="btn btn-secondary" type="button" hidden>Share…</button>
+        <button id="share-close-btn" class="btn btn-ghost" type="button">Close</button>
+      </div>
+      <p id="copy-status" class="copy-status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p class="footer-dedication">💖 FOR MEENU AND AADU 💖</p>
+    <p class="footer-brand">A <span class="brand-name">vbuild&trade;</span> creation · Learn &amp; have fun! 🌟</p>
+  </footer>
+
+  <script src="js/words-1.js"></script>
+  <script src="js/words-2.js"></script>
+  <script src="js/words-3.js"></script>
+  <script src="js/generator.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/fx.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
