@@ -34,6 +34,22 @@ function parseWordList(txt) {
     .filter(function (e) { return /^[A-Z]{3,13}$/.test(e.a) && e.c; });
 }
 
+// Append extra words to an existing theme, skipping any answer the theme already has.
+var WORD_DUPES = [];
+function addWords(key, extra) {
+  var t = THEMES[key];
+  if (!t) return;
+  var have = {};
+  ["easy", "medium", "tricky"].forEach(function (lv) { t.levels[lv].forEach(function (e) { have[e.a] = 1; }); });
+  ["easy", "medium", "tricky"].forEach(function (lv) {
+    parseWordList(extra[lv]).forEach(function (e) {
+      if (have[e.a]) { WORD_DUPES.push(key + "/" + lv + "/" + e.a); return; }
+      have[e.a] = 1;
+      t.levels[lv].push(e);
+    });
+  });
+}
+
 function registerTheme(key, def) {
   THEMES[key] = {
     name: def.name,

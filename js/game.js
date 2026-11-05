@@ -33,7 +33,7 @@
   const state = {
     theme: "regular", level: "easy", mode: "classic", seed: null, shared: false, ctx: {},
     layout: null, cells: {}, cellEls: {}, activeKey: null, dir: "across",
-    solved: new Set(), revealedKeys: new Set(), golden: new Set(), goldenGot: new Set(),
+    solved: new Set(), revealedKeys: new Set(), golden: new Set(), goldenGot: new Set(), extra: {},
     score: 0, combo: 0, comboExpire: 0, comboWindow: 30000, bestCombo: 0, helpUsed: 0,
     elapsed: 0, lastTick: 0, frozenUntil: 0, timeLeft: 0, timerId: null,
     finished: false, lastInput: 0, idleSaid: false, lowTimeSaid: false, lastSecond: -1,
@@ -212,8 +212,26 @@
         }
       }
       const cur = $("current-clue");
-      cur.innerHTML = `<span class="cc-num">${clue.number} ${clue.dir === "across" ? "Across →" : "Down ↓"}</span><span class="cc-text"></span>`;
+      cur.innerHTML = `<span class="cc-num">${clue.number} ${clue.dir === "across" ? "Across →" : "Down ↓"} · ${clue.len} letters</span><span class="cc-text"></span>`;
       cur.querySelector(".cc-text").textContent = clue.clue;
+      const extras = extraClues(clue).slice(0, state.extra[clueId(clue)] || 0);
+      if (extras.length) {
+        const box = el("span", "cc-extras");
+        extras.forEach((x, i) => {
+          const chip = el("span", "cc-extra" + (i === extras.length - 1 && state.justExtra ? " fresh" : ""));
+          chip.innerHTML = `<i>${x.icon}</i> ${x.label} <b></b>`;
+          chip.querySelector("b").textContent = x.value;
+          box.appendChild(chip);
+        });
+        cur.appendChild(box);
+      }
+      state.justExtra = false;
+      const more = $("more-clues-btn");
+      if (more) {
+        const used = state.extra[clueId(clue)] || 0;
+        more.disabled = used >= EXTRA_TIERS;
+        more.querySelector(".mc-count").textContent = used >= EXTRA_TIERS ? "all shown" : `${EXTRA_TIERS - used} left`;
+      }
     }
     if (state.activeKey && state.cellEls[state.activeKey]) state.cellEls[state.activeKey].classList.add("active", "cursor");
   }
@@ -446,6 +464,44 @@
     else if (!wrong) say("Every letter you filled is correct! 🌟");
     else { say(`${wrong} letter${wrong > 1 ? "s are" : " is"} off — the red ones need another try!`, "worried"); FX.play("wrong"); }
     setTimeout(() => Object.values(state.cellEls).forEach((c) => c.classList.remove("correct", "wrong")), 1600);
+  }
+
+  // ---------- More Clues (bonus clues that don't fill in any letters) ----------
+  const EXTRA_TIERS = 3;
+  function scramble(word) {
+    if (new Set(word).size < 2) return word.split("");
+    const rnd = CrosswordGen.rng(state.seed + "|mix|" + word);
+    for (let i = 0; i < 8; i++) {
+      const s = CrosswordGen.shuffle(word.split(""), rnd);
+      if (s.join("") !== word) return s;
+    }
+    return word.split("").reverse();
+  }
+  function extraClues(clue) {
+    const a = clue.answer;
+    return [
+      { icon: "🔤", label: "Starts with", value: a[0] },
+      { icon: "🔚", label: "Ends with", value: a[a.length - 1] },
+      { icon: "🔀", label: "Scrambled letters:", value: scramble(a).join(" ") },
+    ];
+  }
+  function moreClues() {
+    if (state.finished) return;
+    const clue = activeClue();
+    if (!clue) { say("Tap a word first, then I'll give you more clues! 👆"); return; }
+    const id = clueId(clue);
+    const used = state.extra[id] || 0;
+    if (state.solved.has(id)) { say("You already solved that one! 🎉"); return; }
+    if (used >= EXTRA_TIERS) { say("That's every bonus clue I have! Try a 💡 Hint 😉", "worried"); return; }
+    state.extra[id] = used + 1;
+    state.helpUsed++; // free, but it's no longer a "no help" perfect win
+    state.justExtra = true;
+    const li = document.querySelector(`.clue-list li[data-clue="${id}"]`);
+    if (li) li.classList.add("has-extra");
+    FX.play("hint");
+    say(["Here's a bonus clue! 🔎", "Ooh, another clue! 🕵️", "Last bonus clue: unscramble it! 🔀"][used]);
+    updateHighlight();
+    FX.burstAt($("current-clue"), { count: 10, colors: ["#a78bfa", "#38bdf8", "#fde68a"], speed: 2.5 });
   }
 
   // ---------- Power-ups ----------
@@ -702,7 +758,7 @@
 
     const lm = levelMeta(state.level);
     Object.assign(state, {
-      solved: new Set(), revealedKeys: new Set(), goldenGot: new Set(),
+      solved: new Set(), revealedKeys: new Set(), goldenGot: new Set(), extra: {},
       score: 0, combo: 0, comboExpire: 0, comboWindow: lm.comboWindow * 1000, bestCombo: 0, helpUsed: 0,
       elapsed: 0, frozenUntil: 0, finished: false, activeKey: null, dir: "across",
       lastInput: now(), idleSaid: false, lowTimeSaid: false, lastSecond: -1,
@@ -758,6 +814,7 @@
       else if (e.key === "ArrowDown") { moveCursor(1, 0); e.preventDefault(); }
       else if (e.key === "ArrowUp") { moveCursor(-1, 0); e.preventDefault(); }
       else if (e.key === "Tab" || e.key === "Enter") { jumpToNextClue(e.shiftKey ? -1 : 1); e.preventDefault(); }
+      else if (e.key === "?") { moreClues(); e.preventDefault(); }
       else if (e.key === " ") {
         const info = state.cells[state.activeKey];
         if (info && info.acrossClue && info.downClue) { state.dir = state.dir === "across" ? "down" : "across"; updateHighlight(); }
@@ -777,6 +834,7 @@
     });
     $("crossword").addEventListener("click", () => focusInput());
     $("check-btn").addEventListener("click", checkAnswers);
+    $("more-clues-btn").addEventListener("click", () => { moreClues(); focusInput(); });
     document.querySelectorAll(".power-btn").forEach((b) => b.addEventListener("click", () => usePowerup(b.dataset.power)));
   }
 

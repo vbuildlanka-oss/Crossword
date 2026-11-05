@@ -417,6 +417,13 @@ body.dark .clue-list li:hover { background: rgba(255,255,255,0.08); }
 .clue-list li .clen { color: var(--ink-soft); font-size: 0.75rem; margin-left: 0.3rem; font-weight: 700; }
 .clue-list li .ctag { margin-left: 0.3rem; }
 .clue-list li.active { background: var(--accent-soft); }
+.clue-list li.has-extra .cnum::after { content: " 🔎"; font-size: 0.75em; }
+.cc-extras { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+.cc-extra { background: #fff; color: #1e293b; border-radius: 999px; padding: 0.2rem 0.65rem; font-size: 0.85rem; font-weight: 800; box-shadow: 0 2px 0 rgba(0,0,0,0.08); }
+.cc-extra i { font-style: normal; }
+.cc-extra b { color: #7c3aed; font-family: "Baloo 2", sans-serif; font-size: 1.05rem; letter-spacing: 1px; }
+.cc-extra.fresh { animation: chip-in 0.5s cubic-bezier(.2,1.6,.4,1); }
+.more-clues-btn .mc-count { font-size: 0.72rem; font-weight: 800; opacity: 0.75; margin-left: 0.2rem; }
 .clue-list li.done { text-decoration: line-through; color: var(--ink-soft); opacity: 0.65; }
 .clue-list li.done .cnum::before { content: "✓ "; color: #22c55e; }
 

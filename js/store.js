@@ -437,7 +437,8 @@
 
   // ---------------- Adventure map ----------------
   const ADV_ORDER = ["regular", "ocean", "jungle", "farm", "food", "bugs", "space", "dinos", "weather", "sports",
-    "music", "magic", "vehicles", "science", "body", "world", "pirates", "halloween", "christmas", "valentines"];
+    "music", "magic", "vehicles", "science", "body", "world", "pirates", "halloween", "christmas", "valentines",
+    "makeup", "fashion"];
   const ADVENTURE_LENGTH = 40;
   const ADV_LEVELS = ["easy", "medium", "tricky", "mega"];
   function adventureStage(i) {
